@@ -2,6 +2,7 @@ from pettingzoo import ParallelEnv
 import functools
 import itertools
 import warnings
+import pygame
 from typing import Optional
 
 import gymnasium as gym
@@ -113,8 +114,75 @@ class CustomEnvironment(ParallelEnv, EzPickle):
             self.render()
         return self.__collect_observations(), reward, terminated, truncated, {}
 
+    def __build_human_render_image(self):
+        """Stack all available buffers into one for human consumption"""
+        game_state = self.game.get_state()
+        valid_buffers = game_state is not None
+
+        if not valid_buffers:
+            # Return a blank image
+            num_enabled_buffers = 1 + self.depth + self.labels + self.automap
+            img = np.zeros(
+                (
+                    self.game.get_screen_height(),
+                    self.game.get_screen_width() * num_enabled_buffers,
+                    3,
+                ),
+                dtype=np.uint8,
+            )
+            return img
+
+        image_list = [game_state.screen_buffer]
+        if self.channels == 1:
+            image_list = [
+                np.repeat(game_state.screen_buffer[..., None], repeats=3, axis=2)
+            ]
+
+        if self.depth:
+            image_list.append(
+                np.repeat(game_state.depth_buffer[..., None], repeats=3, axis=2)
+            )
+
+        if self.labels:
+            # Give each label a fixed color.
+            # We need to connect each pixel in labels_buffer to the corresponding
+            # id via `value``
+            labels_rgb = np.zeros_like(image_list[0])
+            labels_buffer = game_state.labels_buffer
+            for label in game_state.labels:
+                color = LABEL_COLORS[label.object_id % 256]
+                labels_rgb[labels_buffer == label.value] = color
+            image_list.append(labels_rgb)
+
+        if self.automap:
+            automap_buffer = game_state.automap_buffer
+            if self.channels == 1:
+                automap_buffer = np.repeat(automap_buffer[..., None], repeats=3, axis=2)
+            image_list.append(automap_buffer)
+
+        return np.concatenate(image_list, axis=1)
+    
     def render(self):
-        pass
+        if self.clock is None:
+            self.clock = pygame.time.Clock()
+        render_image = self.__build_human_render_image()
+        if self.render_mode == "rgb_array":
+            return render_image
+        elif self.render_mode == "human":
+            # Transpose image (pygame wants (width, height, channels), we have (height, width, channels))
+            render_image = render_image.transpose(1, 0, 2)
+            if self.window_surface is None:
+                pygame.init()
+                pygame.display.set_caption("ViZDoom")
+                self.window_surface = pygame.display.set_mode(render_image.shape[:2])
+
+            surf = pygame.surfarray.make_surface(render_image)
+            self.window_surface.blit(surf, (0, 0))
+            pygame.display.update()
+            pygame.event.pump()
+            self.clock.tick(self.metadata["render_fps"])
+        else:
+            return self.isopen
 
     def __parse_binary_buttons(self, env_action, agent_action):
         if self.num_binary_buttons != 0:
@@ -175,6 +243,26 @@ class CustomEnvironment(ParallelEnv, EzPickle):
                 )
 
         return observation
+    
+    def __get_binary_action_space(self):
+        """
+        Return binary action space: either ``Discrete(n)``/``MultiDiscrete([2] * num_binary_buttons)``
+        """
+        if self.max_buttons_pressed == 0:
+            button_space = gym.spaces.MultiDiscrete(
+                [
+                    2,
+                ]
+                * self.num_binary_buttons
+            )
+        else:
+            self.button_map = [
+                np.array(list(action))
+                for action in itertools.product((0, 1), repeat=self.num_binary_buttons)
+                if (self.max_buttons_pressed >= sum(action) >= 0)
+            ]
+            button_space = gym.spaces.Discrete(len(self.button_map))
+        return button_space
 
     def __parse_available_buttons(self):
         """
