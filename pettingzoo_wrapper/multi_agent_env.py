@@ -1,4 +1,4 @@
-from pettingzoo import ParallelEnv
+
 import functools
 import itertools
 import warnings
@@ -20,7 +20,7 @@ LABEL_COLORS = (
 )
 
 
-class CustomEnvironment(ParallelEnv, EzPickle):
+class MultiAgentViZDoomEnv(gym.Env, EzPickle):
     # copied from the base_gymnasium_env file
     metadata = {
         "render_modes": ["human", "rgb_array"],
@@ -88,7 +88,14 @@ class CustomEnvironment(ParallelEnv, EzPickle):
         # specify observation space(s)
         self._observation_space = self.observation_space()
 
-        self.game.init()
+        # loads the actual game, needs to be moved to it's own function
+        # self.game.init()
+
+    def _launch(self):
+        self.game.load_config(config)
+
+        # create a host for the game
+        self.game.add_game_args("-host 2 -deathmatch +timelimit 1 +sv_spawnfarthest 1")
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
