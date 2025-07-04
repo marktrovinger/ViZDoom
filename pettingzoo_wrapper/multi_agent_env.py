@@ -1,4 +1,3 @@
-
 import functools
 import itertools
 import warnings
@@ -40,6 +39,7 @@ class MultiAgentViZDoomEnv(gym.Env, EzPickle):
         self.game.load_config(level)
         self.game.set_window_visible(False)
         self.render_mode = render_mode
+        self.level = level
 
         screen_format = self.game.get_screen_format()
         if (
@@ -92,7 +92,8 @@ class MultiAgentViZDoomEnv(gym.Env, EzPickle):
         # self.game.init()
 
     def _launch(self):
-        self.game.load_config(config)
+        # TODO: make sure this loads correctly, what is the difference between level and config?
+        self.game.load_config(self.level)
 
         # create a host for the game
         self.game.add_game_args("-host 2 -deathmatch +timelimit 1 +sv_spawnfarthest 1")
