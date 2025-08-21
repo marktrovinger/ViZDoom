@@ -10,7 +10,7 @@ and [Mark Towers](https://github.com/pseudo-rnd-thoughts).
 
 import itertools
 import warnings
-from typing import Optional
+from typing import Optional, Any
 
 import gymnasium as gym
 import numpy as np
@@ -123,6 +123,7 @@ class VizdoomEnv(gym.Env, EzPickle):
         self.depth = self.game.is_depth_buffer_enabled()
         self.labels = self.game.is_labels_buffer_enabled()
         self.automap = self.game.is_automap_buffer_enabled()
+        self.telemetry = True
 
         # parse buttons defined by config file
         self.__parse_available_buttons()
@@ -229,6 +230,19 @@ class VizdoomEnv(gym.Env, EzPickle):
                 observation["gamevariables"] = self.state.game_variables.astype(
                     np.float32
                 )
+            # add the telemetry data
+            if self.telemetry:
+                player_telemetry = {"player_x": self.state.game_variables[0],
+                                    "player_y": self.state.game_variables[1],
+                                    "player_z": self.state.game_variables[2],
+                                    "objects": [],
+                                    }
+                scene_labels = self.state.labels
+                labels_in_scene = []
+                for label in scene_labels:
+                    labels_in_scene.append(label.object_name)
+                player_telemetry["objects"] = labels_in_scene
+                observation["telemetry"] = player_telemetry
         else:
             # there is no state in the terminal step, so a zero observation is returned instead
             for space_key, space_item in self.observation_space.spaces.items():
@@ -397,6 +411,7 @@ class VizdoomEnv(gym.Env, EzPickle):
         Returns observation space: Dict with Box entry for each activated buffer:
           "screen", "depth", "labels", "automap", "gamevariables"
         """
+        spaces: dict[str, Any]
         spaces = {
             "screen": gym.spaces.Box(
                 0,
@@ -447,6 +462,11 @@ class VizdoomEnv(gym.Env, EzPickle):
                 np.finfo(np.float32).max,
                 (self.num_game_variables,),
                 dtype=np.float32,
+            )
+        if self.telemetry:
+            spaces["telemetry"] = gym.spaces.Text(
+                max_length=10000,
+                min_length=1
             )
 
         return gym.spaces.Dict(spaces)

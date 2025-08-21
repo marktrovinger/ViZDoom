@@ -11,13 +11,15 @@ from vizdoom import gymnasium_wrapper  # noqa
 
 if __name__ == "__main__":
     env = gymnasium.make(
-        "VizdoomHealthGatheringSupreme-v0", render_mode="human", frame_skip=4
+        "VizdoomHealthGatheringSupreme-v1", render_mode="human", frame_skip=4
     )
 
     # Rendering random rollouts for ten episodes
     for _ in range(10):
         done = False
-        obs, info = env.reset(seed=42)
+        obs, info = env.reset()
         while not done:
             obs, rew, terminated, truncated, info = env.step(env.action_space.sample())
+            env.render()
+            print(obs["telemetry"])
             done = terminated or truncated
