@@ -236,12 +236,16 @@ class VizdoomEnv(gym.Env, EzPickle):
                                     "player_y": self.state.game_variables[1],
                                     "player_z": self.state.game_variables[2],
                                     "objects": [],
+                                    "object_coords": []
                                     }
                 scene_labels = self.state.labels
                 labels_in_scene = []
+                label_coords_in_scene = []
                 for label in scene_labels:
                     labels_in_scene.append(label.object_name)
+                    label_coords_in_scene.append([label.object_position_x, label.object_position_y, label.object_position_z])
                 player_telemetry["objects"] = labels_in_scene
+                player_telemetry["object_coords"] = label_coords_in_scene
                 observation["telemetry"] = player_telemetry
         else:
             # there is no state in the terminal step, so a zero observation is returned instead
