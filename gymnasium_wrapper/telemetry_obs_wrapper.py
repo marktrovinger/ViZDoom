@@ -3,6 +3,7 @@ from gymnasium import ObservationWrapper
 from typing import Any
 import copy
 import numpy as np
+import vizdoom as vzd
 
 
 class TelemetryWrapper(ObservationWrapper):
@@ -22,13 +23,13 @@ class TelemetryWrapper(ObservationWrapper):
     def observation(self, observation):
         new_observation = copy.deepcopy(observation)
         player_telemetry = {
-            "player_x": -1,
-            "player_y": -1,
-            "player_z": -1,
+            "player_x": self.game.get_game_variable(vzd.GameVariable.POSITION_X),
+            "player_y": self.game.get_game_variable(vzd.GameVariable.POSITION_Y),
+            "player_z": self.game.get_game_variable(vzd.GameVariable.POSITION_Z),
             "objects_in_scene": [],
             "objects_coords": [],
         }
-        if self.state.labels:
+        if self.state is not None:
             scene_labels = self.state.labels
             labels_in_scene = []
             label_coords_in_scene = []
