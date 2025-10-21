@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 #####################################################################
 # Example script of training agents with stable-baselines3
 # on ViZDoom using the Gymnasium API
@@ -22,7 +21,7 @@ from stable_baselines3.common.env_util import make_vec_env
 import vizdoom.gymnasium_wrapper  # noqa
 
 
-DEFAULT_ENV = "VizdoomBasic-v1"
+DEFAULT_ENV = "VizdoomBasicAudio-v1"
 AVAILABLE_ENVS = [env for env in gymnasium.envs.registry.keys() if "Vizdoom" in env]  # type: ignore
 
 # Height and width of the resized image
@@ -31,7 +30,7 @@ IMAGE_SHAPE = (60, 80)
 # Training parameters
 TRAINING_TIMESTEPS = int(1e6)
 N_STEPS = 128
-N_ENVS = 8
+N_ENVS = 32
 FRAME_SKIP = 4
 
 
@@ -56,15 +55,38 @@ class ObservationWrapper(gymnasium.ObservationWrapper):
         self.image_shape_reverse = shape[::-1]
 
         # Create new observation space with the new shape
-        print(env.observation_space)
         num_channels = env.observation_space["screen"].shape[-1]
         new_shape = (shape[0], shape[1], num_channels)
-        self.observation_space = gymnasium.spaces.Box(
-            0, 255, shape=new_shape, dtype=np.uint8
-        )
+
+        # Get audio observation space if available
+        if "audio" in env.observation_space.spaces:
+            self.observation_space = gymnasium.spaces.Dict(
+                {
+                    "screen": gymnasium.spaces.Box(
+                        0, 255, shape=new_shape, dtype=np.uint8
+                    ),
+                    "audio": env.observation_space["audio"],
+                }
+            )
+        else:
+            self.observation_space = gymnasium.spaces.Dict(
+                {
+                    "screen": gymnasium.spaces.Box(
+                        0, 255, shape=new_shape, dtype=np.uint8
+                    )
+                }
+            )
 
     def observation(self, observation):
-        observation = cv2.resize(observation["screen"], self.image_shape_reverse)
+        if "audio" in self.observation_space.spaces:
+            observation = {
+                "screen": cv2.resize(observation["screen"], self.image_shape_reverse),
+                "audio": observation["audio"],
+            }
+        else:
+            observation = {
+                "screen": cv2.resize(observation["screen"], self.image_shape_reverse)
+            }
         return observation
 
 
@@ -86,13 +108,17 @@ def main(args):
         env_kwargs=dict(frame_skip=FRAME_SKIP),
     )
 
-    agent = PPO("CnnPolicy", envs, n_steps=N_STEPS, verbose=1)
+    agent = PPO("MultiInputPolicy", envs, n_steps=N_STEPS, verbose=2)
 
     # Do the actual learning
     # This will print out the results in the console.
     # If agent gets better, "ep_rew_mean" should increase steadily
+
     try:
-        agent.learn(total_timesteps=TRAINING_TIMESTEPS, progress_bar=True)
+        agent.learn(
+            total_timesteps=TRAINING_TIMESTEPS,
+            progress_bar=True,
+        )
     except ImportError:
         agent.learn(total_timesteps=TRAINING_TIMESTEPS)
 
