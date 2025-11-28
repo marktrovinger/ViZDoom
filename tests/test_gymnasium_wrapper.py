@@ -8,7 +8,7 @@ import pickle
 
 import gymnasium
 import numpy as np
-from gymnasium.spaces import Box, Dict, Discrete, MultiBinary, MultiDiscrete
+from gymnasium.spaces import Box, Dict, Discrete, MultiBinary, MultiDiscrete, Text
 from gymnasium.utils.env_checker import check_env, data_equivalence
 
 from vizdoom import gymnasium_wrapper  # noqa
@@ -29,13 +29,7 @@ envs_with_animated_textures = [
 envs_with_audio = [
     "VizdoomBasicAudio",
 ]
-buffers = [
-    "screen",
-    "depth",
-    "labels",
-    "automap",
-    "audio",
-]
+buffers = ["screen", "depth", "labels", "automap", "audio", "notifications"]
 
 
 # Testing with different non-default kwargs (since each has a different obs space)
@@ -48,7 +42,10 @@ def test_gymnasium_wrapper():
         # Skip environments with animated textures and audio
         # as they might render different states for the same seeds
         # and audio might render slightly different
-        if env_name.split("-")[0] in envs_with_animated_textures + envs_with_audio:
+        if (
+            env_name.split("-")[0]
+            in envs_with_animated_textures + envs_with_audio 
+        ):
             continue
 
         for frame_skip in [1, 4]:
@@ -133,6 +130,7 @@ def test_gymnasium_wrapper_obs_space():
     env_configs = [
         "basic_rgb_i_1_3",
         "basic_g8_i_1_0",
+        "basic_g8_i_1_0_wNotifications",
         "basic_g8_i_1_0_wAudio",
         "basic_g8_idla_4_2",
         "basic_g8_idl_3_1",
@@ -144,9 +142,16 @@ def test_gymnasium_wrapper_obs_space():
     audio_obs_space = Box(
         -32768, 32767, (int(44100 * 1 / 35 * 1), 2), dtype=np.int16
     )  # sampling rate = 44100, frame_skip = 1
+    notifications_obs_space = Text(min_length=1, max_length=32768)
     observation_spaces = [
         Dict({"screen": tri_channel_screen_obs_space}),
         Dict({"screen": single_channel_screen_obs_space}),
+        Dict(
+            {
+                "screen": single_channel_screen_obs_space,
+                "notifications": notifications_obs_space,
+            }
+        ),
         Dict({"screen": single_channel_screen_obs_space, "audio": audio_obs_space}),
         Dict(
             {
