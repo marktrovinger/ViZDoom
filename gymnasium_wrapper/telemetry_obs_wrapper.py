@@ -10,12 +10,11 @@ class TelemetryWrapper(ObservationWrapper):
     def __init__(self, env):
         self.env = env
         # how do we get the underlying game object?
-        self.game = env.unwrapped.game
-        self.state = env.unwrapped.unwrapped.state
+        self.game = self.env.unwrapped.game
         self.depth = env.unwrapped.depth
-        self.labels = env.unwrapped.labels
         self.automap = env.unwrapped.automap
         self.channels = env.unwrapped.channels
+        self.labels = env.unwrapped.labels
         self.telemetry = True
         self.observation_space = self.__get_observation_space()
         super().__init__(env)
@@ -29,10 +28,10 @@ class TelemetryWrapper(ObservationWrapper):
             "objects_in_scene": [],
             "objects_coords": [],
         }
-        print(self.state)
-        if self.state:
+        state = self.game.get_state()
+        if state is not None:
             print("State is no longer None.")
-            scene_labels = self.state.labels
+            scene_labels = state.labels
             labels_in_scene = []
             label_coords_in_scene = []
             for label in scene_labels:
